@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Importar Receitas MD</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #fff7ed;
+      padding: 20px;
+      color: #333;
+    }
+
+    .box {
+      max-width: 700px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 14px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    }
+
+    button, input {
+      width: 100%;
+      padding: 14px;
+      margin: 10px 0;
+      font-size: 16px;
+    }
+
+    button {
+      background: #f59e0b;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    pre {
+      background: #f3f4f6;
+      padding: 12px;
+      border-radius: 10px;
+      max-height: 300px;
+      overflow: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>Importar receitas Markdown</h1>
+
+    <p>Selecione a pasta onde estão os arquivos <strong>.md</strong>.</p>
+
+    <input id="folderInput" type="file" webkitdirectory multiple accept=".md" />
+
+    <button id="importBtn">Importar para o Firebase</button>
+
+    <h3>Status</h3>
+    <pre id="status">Aguardando seleção...</pre>
+  </div>
+
+  <script type="module">
+    import { firebaseConfig, ADMIN_PASSWORD } from "./firebase-config.js";
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+    import {
+      getFirestore,
+      collection,
+      doc,
+      writeBatch,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const folderInput = document.getElementById("folderInput");
+    const importBtn = document.getElementById("importBtn");
+    const statusBox = document.getElementById("status");
+
+    function log(message) {
+      statusBox.textContent += "\\n" + message;
+    }
+
+    function parseMarkdown(fileName, text) {
+      let content = text.replace(/\\r/g, "").trim();
+
+      let title = fileName.replace(/\\.md$/i, "");
+
+      const titleMatch = content.match(/^#\\s+(.+)$/m);
+
+      if (titleMatch) {
+        title = titleMatch[1].trim();
+        content = content.replace(titleMatch[0], "").trim();
+      }
+
+      let ingredients = "";
+      let preparation = "";
+
+      const lower = content.toLowerCase();
+
+      const ingredientsIndex = lower.search(/ingredientes?/);
+      const preparationIndex = lower.search(/modo de preparo|preparo|modo de fazer|preparação/);
+
+      if (ingredientsIndex !== -1 && preparationIndex !== -1 && preparationIndex > ingredientsIndex) {
+        ingredients = content
+          .slice(ingredientsIndex, preparationIndex)
+          .replace(/^ingredientes?:?/i, "")
+          .trim();
+
+        preparation = content
+          .slice(preparationIndex)
+          .replace(/^(modo de preparo|preparo|modo de fazer|preparação):?/i, "")
+          .trim();
+      } else {
+        ingredients = content;
+        preparation = "";
+      }
+
+      return {
+        title,
+        ingredients,
+        preparation,
+        sourceFile: fileName
+      };
+    }
+
+    async function importFiles() {
+      const password = prompt("Digite a senha para importar:");
+
+      if (password !== ADMIN_PASSWORD) {
+        alert("Senha incorreta.");
+        return;
+      }
+
+      const files = Array.from(folderInput.files).filter(file =>
+        file.name.toLowerCase().endsWith(".md")
+      );
+
+      if (files.length === 0) {
+        alert("Selecione uma pasta com arquivos .md");
+        return;
+      }
+
+      statusBox.textContent = `Encontrados ${files.length} arquivos .md`;
+
+      importBtn.disabled = true;
+      importBtn.textContent = "Importando...";
+
+      try {
+        let batch = writeBatch(db);
+        let count = 0;
+        let total = 0;
+
+        for (const file of files) {
+          const text = await file.text();
+          const recipe = parseMarkdown(file.name, text);
+
+          if (!recipe.title || !recipe.ingredients) {
+            log(`Ignorado: ${file.name}`);
+            continue;
+          }
+
+          const ref = doc(collection(db, "recipes"));
+
+          batch.set(ref, {
+            title: recipe.title,
+            ingredients: recipe.ingredients,
+            preparation: recipe.preparation,
+            sourceFile: recipe.sourceFile,
+            createdAt: serverTimestamp(),
+            importedAt: serverTimestamp()
+          });
+
+          count++;
+          total++;
+
+          log(`Preparado: ${recipe.title}`);
+
+          if (count === 450) {
+            await batch.commit();
+            log("Lote enviado ao Firebase...");
+            batch = writeBatch(db);
+            count = 0;
+          }
+        }
+
+        if (count > 0) {
+          await batch.commit();
+        }
+
+        log("");
+        log(`Importação finalizada: ${total} receitas importadas.`);
+        alert(`Importação finalizada: ${total} receitas importadas.`);
+
+      } catch (error) {
+        console.error(error);
+        alert("Erro ao importar: " + error.message);
+        log("ERRO: " + error.message);
+      } finally {
+        importBtn.disabled = false;
+        importBtn.textContent = "Importar para o Firebase";
+      }
+    }
+
+    importBtn.addEventListener("click", importFiles);
+  </script>
+</body>
+</html>
