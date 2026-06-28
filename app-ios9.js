@@ -180,7 +180,14 @@ function openRecipe(recipe) {
   modalPreparation.innerHTML = escapeHtml(recipe.preparation || "");
 
   closeEditMode();
-  modal.className = modal.className.replace(/\bhidden\b/g, "");
+
+  modal.style.display = "flex";
+  modal.style.position = "fixed";
+  modal.style.left = "0";
+  modal.style.top = "0";
+  modal.style.right = "0";
+  modal.style.bottom = "0";
+  modal.style.zIndex = "9999";
 }
 
 function askPassword() {
@@ -281,7 +288,7 @@ function deleteRecipe() {
     .delete()
     .then(function() {
       alert("Receita excluída com sucesso!");
-      addClass(modal, "hidden");
+      modal.style.display = "none";
       loadRecipes();
     })
     .catch(function(error) {
@@ -312,7 +319,7 @@ searchInput.onkeyup = function() {
 };
 
 closeModal.onclick = function() {
-  addClass(modal, "hidden");
+  modal.style.display = "none";
 };
 
 editBtn.onclick = editRecipe;
