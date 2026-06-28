@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minhas Receitas - iOS 9</title>
+
+  <link rel="stylesheet" href="./style.css">
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Receitas">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+</head>
+
+<body>
+  <header>
+    <h1>🍲 Minhas Receitas</h1>
+    <p>Versão compatível com iOS 9</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Nova Receita</h2>
+
+      <input id="title" type="text" placeholder="Nome da receita">
+
+      <textarea id="ingredients" placeholder="Ingredientes"></textarea>
+
+      <textarea id="preparation" placeholder="Modo de preparo"></textarea>
+
+      <button id="saveBtn">Salvar Receita</button>
+    </section>
+
+    <section>
+      <h2>Receitas cadastradas</h2>
+
+      <input id="search" type="text" placeholder="Buscar receita...">
+
+      <div id="recipesList"></div>
+    </section>
+  </main>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-content">
+      <button id="closeModal" class="close">×</button>
+
+      <h2 id="modalTitle"></h2>
+
+      <h3>Ingredientes</h3>
+      <p id="modalIngredients"></p>
+
+      <h3>Modo de preparo</h3>
+      <p id="modalPreparation"></p>
+
+      <div id="editArea" class="hidden">
+        <input id="editTitle" type="text" placeholder="Nome da receita">
+
+        <textarea id="editIngredients" placeholder="Ingredientes"></textarea>
+
+        <textarea id="editPreparation" placeholder="Modo de preparo"></textarea>
+
+        <button id="saveEditBtn">Salvar Alterações</button>
+        <button id="cancelEditBtn" class="secondary">Cancelar</button>
+      </div>
+
+      <div class="actions">
+        <button id="editBtn">Editar</button>
+        <button id="deleteBtn" class="danger">Excluir</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/5.5.3/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/5.5.3/firebase-firestore.js"></script>
+  <script src="./firebase-ios9.js"></script>
+  <script src="./app-ios9.js"></script>
+</body>
+</html>
