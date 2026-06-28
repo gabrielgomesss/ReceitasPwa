@@ -1,79 +1,66 @@
-import { firebaseConfig, ADMIN_PASSWORD } from "./firebase-config.js";
+var titleInput = document.getElementById("title");
+var ingredientsInput = document.getElementById("ingredients");
+var preparationInput = document.getElementById("preparation");
+var saveBtn = document.getElementById("saveBtn");
+var recipesList = document.getElementById("recipesList");
+var searchInput = document.getElementById("search");
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+var modal = document.getElementById("modal");
+var closeModal = document.getElementById("closeModal");
+var modalTitle = document.getElementById("modalTitle");
+var modalIngredients = document.getElementById("modalIngredients");
+var modalPreparation = document.getElementById("modalPreparation");
+var editBtn = document.getElementById("editBtn");
+var deleteBtn = document.getElementById("deleteBtn");
 
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  doc,
-  serverTimestamp,
-  query,
-  orderBy
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+var editArea = document.getElementById("editArea");
+var editTitle = document.getElementById("editTitle");
+var editIngredients = document.getElementById("editIngredients");
+var editPreparation = document.getElementById("editPreparation");
+var saveEditBtn = document.getElementById("saveEditBtn");
+var cancelEditBtn = document.getElementById("cancelEditBtn");
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+var recipes = [];
+var selectedRecipe = null;
+var visibleCount = 10;
 
-const titleInput = document.getElementById("title");
-const ingredientsInput = document.getElementById("ingredients");
-const preparationInput = document.getElementById("preparation");
-const saveBtn = document.getElementById("saveBtn");
-const recipesList = document.getElementById("recipesList");
-const searchInput = document.getElementById("search");
+function loadRecipes() {
+  recipesList.innerHTML = "Carregando receitas...";
 
-const modal = document.getElementById("modal");
-const closeModal = document.getElementById("closeModal");
-const modalTitle = document.getElementById("modalTitle");
-const modalIngredients = document.getElementById("modalIngredients");
-const modalPreparation = document.getElementById("modalPreparation");
-const editBtn = document.getElementById("editBtn");
-const deleteBtn = document.getElementById("deleteBtn");
-const editArea = document.getElementById("editArea");
-const editTitle = document.getElementById("editTitle");
-const editIngredients = document.getElementById("editIngredients");
-const editPreparation = document.getElementById("editPreparation");
-const saveEditBtn = document.getElementById("saveEditBtn");
-const cancelEditBtn = document.getElementById("cancelEditBtn");
+  db.collection("recipes")
+    .orderBy("createdAt", "desc")
+    .get()
+    .then(function(snapshot) {
+      recipes = [];
 
-let recipes = [];
-let selectedRecipe = null;
-let visibleCount = 10;
+      snapshot.forEach(function(doc) {
+        var data = doc.data();
+        data.id = doc.id;
+        recipes.push(data);
+      });
 
-async function loadRecipes() {
-  try {
-    recipesList.innerHTML = "Carregando receitas...";
-
-    const q = query(collection(db, "recipes"), orderBy("createdAt", "desc"));
-    const snapshot = await getDocs(q);
-
-    recipes = snapshot.docs.map(item => ({
-      id: item.id,
-      ...item.data()
-    }));
-
-    renderRecipes();
-
-  } catch (error) {
-    console.error("Erro ao carregar receitas:", error);
-    recipesList.innerHTML = "Erro ao carregar receitas.";
-    alert("Erro ao carregar receitas: " + error.message);
-  }
+      renderRecipes();
+    })
+    .catch(function(error) {
+      console.log("Erro ao carregar receitas:", error);
+      recipesList.innerHTML = "Erro ao carregar receitas.";
+      alert("Erro ao carregar receitas: " + error.message);
+    });
 }
 
-
-
 function renderRecipes() {
-  const search = searchInput.value.toLowerCase();
+  var search = searchInput.value.toLowerCase();
+  var filtered = [];
 
-  const filtered = recipes.filter(recipe =>
-    recipe.title.toLowerCase().includes(search)
-  );
+  for (var i = 0; i < recipes.length; i++) {
+    var recipe = recipes[i];
+    var title = recipe.title ? recipe.title.toLowerCase() : "";
+    var ingredients = recipe.ingredients ? recipe.ingredients.toLowerCase() : "";
 
-  const visibleRecipes = filtered.slice(0, visibleCount);
+    if (title.indexOf(search) !== -1 || ingredients.indexOf(search) !== -1) {
+      filtered.push(recipe);
+    }
+  }
 
   recipesList.innerHTML = "";
 
@@ -82,85 +69,97 @@ function renderRecipes() {
     return;
   }
 
-  visibleRecipes.forEach(recipe => {
-    const card = document.createElement("div");
-    card.className = "recipe-card";
+  var limit = Math.min(visibleCount, filtered.length);
 
-    card.innerHTML = `
-      <h3>${recipe.title}</h3>
-      <p>${recipe.ingredients.substring(0, 100)}...</p>
-      <button>Ver Receita</button>
-    `;
-
-    card.querySelector("button").addEventListener("click", () => {
-      openRecipe(recipe);
-    });
-
-    recipesList.appendChild(card);
-  });
+  for (var j = 0; j < limit; j++) {
+    createRecipeCard(filtered[j]);
+  }
 
   if (filtered.length > visibleCount) {
-    const loadMoreBtn = document.createElement("button");
-    loadMoreBtn.textContent = "Carregar mais receitas";
+    var loadMoreBtn = document.createElement("button");
+    loadMoreBtn.innerHTML = "Carregar mais receitas";
     loadMoreBtn.className = "load-more-btn";
 
-    loadMoreBtn.addEventListener("click", () => {
+    loadMoreBtn.onclick = function() {
       visibleCount += 10;
       renderRecipes();
-    });
+    };
 
     recipesList.appendChild(loadMoreBtn);
   }
 }
-async function saveRecipe() {
-  try {
-    const title = titleInput.value.trim();
-    const ingredients = ingredientsInput.value.trim();
-    const preparation = preparationInput.value.trim();
 
-    if (!title || !ingredients || !preparation) {
-      alert("Preencha todos os campos.");
-      return;
-    }
+function createRecipeCard(recipe) {
+  var card = document.createElement("div");
+  card.className = "recipe-card";
 
-    saveBtn.disabled = true;
-    saveBtn.textContent = "Salvando...";
+  var preview = recipe.ingredients || "";
+  if (preview.length > 100) {
+    preview = preview.substring(0, 100) + "...";
+  }
 
-    await addDoc(collection(db, "recipes"), {
-      title,
-      ingredients,
-      preparation,
-      createdAt: serverTimestamp()
-    });
+  card.innerHTML =
+    "<h3>" + escapeHtml(recipe.title || "Sem título") + "</h3>" +
+    "<p>" + escapeHtml(preview) + "</p>" +
+    "<button>Ver Receita</button>";
 
+  card.getElementsByTagName("button")[0].onclick = function() {
+    openRecipe(recipe);
+  };
+
+  recipesList.appendChild(card);
+}
+
+function saveRecipe() {
+  var title = titleInput.value.replace(/^\s+|\s+$/g, "");
+  var ingredients = ingredientsInput.value.replace(/^\s+|\s+$/g, "");
+  var preparation = preparationInput.value.replace(/^\s+|\s+$/g, "");
+
+  if (!title || !ingredients) {
+    alert("Preencha pelo menos o nome e os ingredientes.");
+    return;
+  }
+
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = "Salvando...";
+
+  db.collection("recipes").add({
+    title: title,
+    ingredients: ingredients,
+    preparation: preparation,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  })
+  .then(function() {
     titleInput.value = "";
     ingredientsInput.value = "";
     preparationInput.value = "";
 
     alert("Receita salva com sucesso!");
-
-    await loadRecipes();
-
-  } catch (error) {
-    console.error("Erro ao salvar receita:", error);
+    loadRecipes();
+  })
+  .catch(function(error) {
+    console.log("Erro ao salvar receita:", error);
     alert("Erro ao salvar receita: " + error.message);
-  } finally {
+  })
+  .then(function() {
     saveBtn.disabled = false;
-    saveBtn.textContent = "Salvar Receita";
-  }
+    saveBtn.innerHTML = "Salvar Receita";
+  });
 }
+
 function openRecipe(recipe) {
   selectedRecipe = recipe;
 
-  modalTitle.textContent = recipe.title;
-  modalIngredients.textContent = recipe.ingredients;
-  modalPreparation.textContent = recipe.preparation;
+  modalTitle.innerHTML = escapeHtml(recipe.title || "");
+  modalIngredients.innerHTML = escapeHtml(recipe.ingredients || "");
+  modalPreparation.innerHTML = escapeHtml(recipe.preparation || "");
 
+  closeEditMode();
   modal.classList.remove("hidden");
 }
 
 function askPassword() {
-  const password = prompt("Digite a senha para continuar:");
+  var password = prompt("Digite a senha para continuar:");
 
   if (password !== ADMIN_PASSWORD) {
     alert("Senha incorreta.");
@@ -174,9 +173,9 @@ function editRecipe() {
   if (!selectedRecipe) return;
   if (!askPassword()) return;
 
-  editTitle.value = selectedRecipe.title;
-  editIngredients.value = selectedRecipe.ingredients;
-  editPreparation.value = selectedRecipe.preparation;
+  editTitle.value = selectedRecipe.title || "";
+  editIngredients.value = selectedRecipe.ingredients || "";
+  editPreparation.value = selectedRecipe.preparation || "";
 
   modalTitle.classList.add("hidden");
   modalIngredients.classList.add("hidden");
@@ -188,51 +187,48 @@ function editRecipe() {
   editArea.classList.remove("hidden");
 }
 
-async function saveEditedRecipe() {
+function saveEditedRecipe() {
   if (!selectedRecipe) return;
 
-  const newTitle = editTitle.value.trim();
-  const newIngredients = editIngredients.value.trim();
-  const newPreparation = editPreparation.value.trim();
+  var newTitle = editTitle.value.replace(/^\s+|\s+$/g, "");
+  var newIngredients = editIngredients.value.replace(/^\s+|\s+$/g, "");
+  var newPreparation = editPreparation.value.replace(/^\s+|\s+$/g, "");
 
-  // if (!newTitle || !newIngredients || !newPreparation) {
-  //   alert("Preencha todos os campos.");
-  //   return;
-  // }
+  if (!newTitle || !newIngredients) {
+    alert("Preencha pelo menos o nome e os ingredientes.");
+    return;
+  }
 
-  try {
-    saveEditBtn.disabled = true;
-    saveEditBtn.textContent = "Salvando...";
+  saveEditBtn.disabled = true;
+  saveEditBtn.innerHTML = "Salvando...";
 
-    const recipeRef = doc(db, "recipes", selectedRecipe.id);
-
-    await updateDoc(recipeRef, {
-      title: newTitle,
-      ingredients: newIngredients,
-      preparation: newPreparation
-    });
-
+  db.collection("recipes").doc(selectedRecipe.id).update({
+    title: newTitle,
+    ingredients: newIngredients,
+    preparation: newPreparation
+  })
+  .then(function() {
     selectedRecipe.title = newTitle;
     selectedRecipe.ingredients = newIngredients;
     selectedRecipe.preparation = newPreparation;
 
-    modalTitle.textContent = newTitle;
-    modalIngredients.textContent = newIngredients;
-    modalPreparation.textContent = newPreparation;
+    modalTitle.innerHTML = escapeHtml(newTitle);
+    modalIngredients.innerHTML = escapeHtml(newIngredients);
+    modalPreparation.innerHTML = escapeHtml(newPreparation);
 
     closeEditMode();
-
-    alert("Receita atualizada com sucesso!");
-
     renderRecipes();
 
-  } catch (error) {
-    console.error("Erro ao atualizar receita:", error);
+    alert("Receita atualizada com sucesso!");
+  })
+  .catch(function(error) {
+    console.log("Erro ao atualizar receita:", error);
     alert("Erro ao atualizar receita: " + error.message);
-  } finally {
+  })
+  .then(function() {
     saveEditBtn.disabled = false;
-    saveEditBtn.textContent = "Salvar Alterações";
-  }
+    saveEditBtn.innerHTML = "Salvar Alterações";
+  });
 }
 
 function closeEditMode() {
@@ -246,34 +242,50 @@ function closeEditMode() {
   deleteBtn.classList.remove("hidden");
 }
 
-async function deleteRecipe() {
+function deleteRecipe() {
   if (!selectedRecipe) return;
   if (!askPassword()) return;
 
-  const confirmDelete = confirm("Tem certeza que deseja excluir esta receita?");
-
+  var confirmDelete = confirm("Tem certeza que deseja excluir esta receita?");
   if (!confirmDelete) return;
 
-  await deleteDoc(doc(db, "recipes", selectedRecipe.id));
-
-  alert("Receita excluída com sucesso!");
-  modal.classList.add("hidden");
-  loadRecipes();
+  db.collection("recipes").doc(selectedRecipe.id).delete()
+    .then(function() {
+      alert("Receita excluída com sucesso!");
+      modal.classList.add("hidden");
+      loadRecipes();
+    })
+    .catch(function(error) {
+      console.log("Erro ao excluir receita:", error);
+      alert("Erro ao excluir receita: " + error.message);
+    });
 }
 
-saveBtn.addEventListener("click", saveRecipe);
-searchInput.addEventListener("input", () => {
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+saveBtn.onclick = saveRecipe;
+
+searchInput.oninput = function() {
   visibleCount = 10;
   renderRecipes();
-});
-closeModal.addEventListener("click", () => modal.classList.add("hidden"));
-editBtn.addEventListener("click", editRecipe);
-deleteBtn.addEventListener("click", deleteRecipe);
-saveEditBtn.addEventListener("click", saveEditedRecipe);
-cancelEditBtn.addEventListener("click", closeEditMode);
+};
+
+closeModal.onclick = function() {
+  modal.classList.add("hidden");
+};
+
+editBtn.onclick = editRecipe;
+deleteBtn.onclick = deleteRecipe;
+saveEditBtn.onclick = saveEditedRecipe;
+cancelEditBtn.onclick = closeEditMode;
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
+  window.addEventListener("load", function() {
     navigator.serviceWorker.register("./service-worker.js");
   });
 }
