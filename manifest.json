@@ -2,7 +2,7 @@
   "name": "Minhas Receitas",
   "short_name": "Receitas",
   "description": "Receitas da família",
-  "start_url": "./index1.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#fff7ed",
