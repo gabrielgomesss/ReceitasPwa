@@ -1,7 +1,7 @@
 const CACHE_NAME = "receitas-pwa-v3";
 
 const FILES_TO_CACHE = [
-  "./index1.html",
+  "./index.html",
   "./style.css",
   "./app.js",
   "./firebase-config.js",
